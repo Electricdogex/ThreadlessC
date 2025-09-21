@@ -13,7 +13,8 @@
 // own project values for production use.
 const SUPABASE_URL = "https://ltxuqodtgzuculryimwe.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0eHVxb2R0Z3p1Y3VscnlpbXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0ODAxMDksImV4cCI6MjA3NDA1NjEwOX0.nxGsleK3F0lsypzXtZeDPsy2I2JP3uJBtBtd2s5LkEI";
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Create a dedicated client instance. Avoid shadowing the global `supabase` constructor.
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // UI elements; will be populated later
 const app = document.getElementById('app');
@@ -33,7 +34,7 @@ themeSelect.addEventListener('change', () => {
 
 // Check current session and render accordingly
 async function init() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await client.auth.getSession();
   if (!session) {
     // No user session; redirect to login page
     window.location.href = 'login.html';
@@ -43,11 +44,11 @@ async function init() {
   userStatus.textContent = user.email;
   logoutBtn.style.display = 'inline-block';
   logoutBtn.addEventListener('click', async () => {
-    await supabase.auth.signOut();
+    await client.auth.signOut();
     window.location.href = 'login.html';
   });
   // Ensure a row exists in balances table for this user
-  const { data: balData, error: balErr } = await supabase
+  const { data: balData, error: balErr } = await client
     .from('balances')
     .select('balance, last_generated')
     .eq('user_id', user.id)
@@ -56,7 +57,7 @@ async function init() {
   let lastGenerated = null;
   if (balErr && balErr.code === 'PGRST116') {
     // Row does not exist; create one with 0 balance
-    await supabase.from('balances').insert({ user_id: user.id, balance: 0, last_generated: new Date().toISOString() });
+    await client.from('balances').insert({ user_id: user.id, balance: 0, last_generated: new Date().toISOString() });
     balance = 0;
     lastGenerated = new Date().toISOString();
   } else {
@@ -104,7 +105,7 @@ function renderApp(user, balance, lastGenerated) {
       return;
     }
     // Retrieve latest balance before converting
-    const { data: balRow, error } = await supabase.from('balances').select('balance').eq('user_id', user.id).single();
+    const { data: balRow, error } = await client.from('balances').select('balance').eq('user_id', user.id).single();
     let currentBal = parseFloat(balRow?.balance || 0);
     if (currentBal < amount) {
       output.textContent = 'Insufficient balance.';
@@ -114,14 +115,14 @@ function renderApp(user, balance, lastGenerated) {
     // Generate a random passid (32 hex chars)
     const passid = crypto.randomUUID().replace(/-/g, '');
     // Insert new passid and update balance in a transaction-like sequence
-    const { error: insertErr } = await supabase.from('passids').insert({ user_id: user.id, amount, passid, redeemed_by: null, redeemed_at: null });
+    const { error: insertErr } = await client.from('passids').insert({ user_id: user.id, amount, passid, redeemed_by: null, redeemed_at: null });
     if (insertErr) {
       output.textContent = insertErr.message || 'Failed to create passid.';
       output.style.display = 'block';
       return;
     }
     // Deduct from balance
-    await supabase.from('balances').update({ balance: currentBal - amount }).eq('user_id', user.id);
+    await client.from('balances').update({ balance: currentBal - amount }).eq('user_id', user.id);
     // Update UI
     document.getElementById('balanceDisplay').textContent = (currentBal - amount).toFixed(4) + ' ¢';
     output.textContent = `PassID created: ${passid}`;
@@ -136,7 +137,7 @@ function renderApp(user, balance, lastGenerated) {
     const pid = passidInput.value.trim();
     if (!pid) return;
     // Fetch passid record
-    const { data: rec, error } = await supabase.from('passids').select('*').eq('passid', pid).single();
+    const { data: rec, error } = await client.from('passids').select('*').eq('passid', pid).single();
     if (error || !rec) {
       messageEl.textContent = 'Invalid passid.';
       messageEl.style.display = 'block';
@@ -153,7 +154,7 @@ function renderApp(user, balance, lastGenerated) {
       return;
     }
     // Redeem: update passids row and credit coins
-    const { error: updateErr } = await supabase.from('passids').update({ redeemed_by: user.id, redeemed_at: new Date().toISOString() }).eq('id', rec.id);
+    const { error: updateErr } = await client.from('passids').update({ redeemed_by: user.id, redeemed_at: new Date().toISOString() }).eq('id', rec.id);
     if (updateErr) {
       messageEl.textContent = updateErr.message || 'Could not redeem passid.';
       messageEl.style.display = 'block';
@@ -161,10 +162,10 @@ function renderApp(user, balance, lastGenerated) {
     }
     // Credit balance
     // Fetch current balance then update
-    const { data: balRow2 } = await supabase.from('balances').select('balance').eq('user_id', user.id).single();
+    const { data: balRow2 } = await client.from('balances').select('balance').eq('user_id', user.id).single();
     const userBal = parseFloat(balRow2?.balance || 0);
     const newBal = userBal + parseFloat(rec.amount);
-    await supabase.from('balances').update({ balance: newBal }).eq('user_id', user.id);
+    await client.from('balances').update({ balance: newBal }).eq('user_id', user.id);
     document.getElementById('balanceDisplay').textContent = newBal.toFixed(4) + ' ¢';
     messageEl.textContent = `Redeemed ${rec.amount.toFixed(4)} ¢ successfully!`;
     messageEl.style.display = 'block';
@@ -189,7 +190,7 @@ function startMinting(user, startingBalance, lastGenerated) {
     currentBalance += earned;
     lastGen = now;
     // Persist initial catch-up
-    supabase.from('balances').update({ balance: currentBalance, last_generated: new Date().toISOString() }).eq('user_id', user.id);
+    client.from('balances').update({ balance: currentBalance, last_generated: new Date().toISOString() }).eq('user_id', user.id);
   }
   // Update UI
   document.getElementById('balanceDisplay').textContent = currentBalance.toFixed(4) + ' ¢';
@@ -207,7 +208,7 @@ function startMinting(user, startingBalance, lastGenerated) {
     // Persist roughly once every minute
     if (accumulatedSeconds >= 60) {
       accumulatedSeconds = 0;
-      await supabase.from('balances').update({ balance: currentBalance, last_generated: new Date().toISOString() }).eq('user_id', user.id);
+      await client.from('balances').update({ balance: currentBalance, last_generated: new Date().toISOString() }).eq('user_id', user.id);
     }
   }, 1000);
 }
