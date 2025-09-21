@@ -149,7 +149,8 @@
   // Supabase initialization: copy your project URL and anon key here
   const SUPABASE_URL = "https://ltxuqodtgzuculryimwe.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0eHVxb2R0Z3p1Y3VscnlpbXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0ODAxMDksImV4cCI6MjA3NDA1NjEwOX0.nxGsleK3F0lsypzXtZeDPsy2I2JP3uJBtBtd2s5LkEI";
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // Create a dedicated client; avoid shadowing the global `supabase` constructor
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // Theme persistence
   const themeSelect = document.getElementById('themeSelect');
@@ -177,7 +178,7 @@
     const password = document.getElementById('loginPassword').value;
     const errEl = document.getElementById('loginError');
     errEl.style.display = 'none';
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
     if (error) {
       errEl.textContent = error.message || 'Login failed';
       errEl.style.display = 'block';
@@ -194,7 +195,7 @@
     const password = document.getElementById('signupPassword').value;
     const errEl = document.getElementById('signupError');
     errEl.style.display = 'none';
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await client.auth.signUp({ email, password });
     if (error) {
       errEl.textContent = error.message || 'Sign up failed';
       errEl.style.display = 'block';
@@ -202,7 +203,7 @@
       // Insert a row in balances for new user
       const userId = data.user?.id;
       if (userId) {
-        await supabase.from('balances').insert({ user_id: userId, balance: 0, last_generated: new Date().toISOString() });
+        await client.from('balances').insert({ user_id: userId, balance: 0, last_generated: new Date().toISOString() });
       }
       // Redirect to index
       location.href = 'index.html';
