@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ThreadlessCoin · Login</title>
+
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
     base-uri 'none';
@@ -14,76 +15,41 @@
     connect-src 'self' https://*.supabase.co wss://*.supabase.co;
     upgrade-insecure-requests;">
   <meta name="robots" content="noindex, nofollow">
+
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230e1613' stroke='%23ff8b3d' stroke-width='4'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-size='28' fill='%23ff8b3d'%3E%C2%A2%3C/text%3E%3C/svg%3E">
+
   <style>
-    /* Copy theme variables & basic styles from index */
-    :root{
-      --bg:#0e1613; --card:#122019; --ink:#e9f5ee; --muted:#9db7ab; --line:#1e2e27;
-      --accent:#ff8b3d; --accent-2:#1f9d68; --accent-2-ink:#06120d; --warn:#ffd08f;
-      --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    }
+    /* (same theme tokens as index; kept) */
+    :root{ --bg:#0e1613; --card:#122019; --ink:#e9f5ee; --muted:#9db7ab; --line:#1e2e27; --accent:#ff8b3d; --accent-2:#1f9d68; --accent-2-ink:#06120d; --warn:#ffd08f; --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
     [data-theme="forest"]{ --bg:#0e1613; --card:#122019; --ink:#e9f5ee; --muted:#9db7ab; --line:#1e2e27; --accent:#ff8b3d; --accent-2:#1f9d68; --accent-2-ink:#06120d; --warn:#ffd08f }
     [data-theme="sunset"]{ --bg:#160f12; --card:#22161b; --ink:#ffeef3; --muted:#c5a7b3; --line:#2d1e25; --accent:#ff6b6b; --accent-2:#ffb86b; --accent-2-ink:#2b130f; --warn:#ffe0b5 }
     [data-theme="midnight"]{ --bg:#0d0f19; --card:#121427; --ink:#e9ebff; --muted:#a9b0d4; --line:#1a1d36; --accent:#8ab4ff; --accent-2:#6ae6c1; --accent-2-ink:#021410; --warn:#ffd9a3 }
     [data-theme="ocean"]{ --bg:#07171d; --card:#0d2330; --ink:#e6fbff; --muted:#a6c9d6; --line:#143244; --accent:#26b0ff; --accent-2:#15d1b2; --accent-2-ink:#01221c; --warn:#ffe6b8 }
     [data-theme="grape"]{ --bg:#160d1a; --card:#231128; --ink:#f6e9ff; --muted:#c7abd8; --line:#31153b; --accent:#c47dff; --accent-2:#ff9fb3; --accent-2-ink:#2b0c18; --warn:#ffe0c1 }
     [data-theme="mono"]{ --bg:#0c0c0c; --card:#141414; --ink:#f5f5f5; --muted:#bcbcbc; --line:#202020; --accent:#ffffff; --accent-2:#d0d0d0; --accent-2-ink:#121212; --warn:#ffd08f }
-    [data-theme="x"]{
-      --bg:#000000;
-      --card:#0a0a0a;
-      --ink:#e7e9ea;
-      --muted:#71767b;
-      --line:#2f3336;
-      --accent:#1d9bf0;
-      --accent-2:#1d9bf0;
-      --accent-2-ink:#00131f;
-      --warn:#ffd9a3;
-      --btn-ink:#ffffff;
-    }
-    [data-theme="buran"]{
-      --bg:#0b0c0e;
-      --card:#121418;
-      --ink:#f0f1f3;
-      --muted:#a2a8b3;
-      --line:#1f232b;
-      --accent:#d52b1e;
-      --accent-2:#84b6ff;
-      --accent-2-ink:#06121f;
-      --warn:#ffcc66;
-      --btn-ink:#ffffff;
-    }
-    [data-theme="halloween"]{
-      --bg:#0b0a12;
-      --card:#13111b;
-      --ink:#f7efe4;
-      --muted:#b7a8c6;
-      --line:#241f33;
-      --accent:#ff7a00;
-      --accent-2:#39ff88;
-      --accent-2-ink:#02150a;
-      --warn:#ffd39b;
-      --btn-ink:#1a0e05;
-    }
-    *{ box-sizing:border-box }
-    html,body{ height:100% }
-    body{ margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 var(--font); }
-    header{ position:sticky; top:0; z-index:3; background:linear-gradient(180deg, color-mix(in srgb, var(--card) 85%, transparent), transparent); backdrop-filter: blur(6px); border-bottom:1px solid var(--line); }
-    .wrap{ max-width:860px; margin:0 auto; padding:16px; }
-    .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .brand{ display:flex; align-items:center; gap:12px; }
+    [data-theme="x"]{ --bg:#000; --card:#0a0a0a; --ink:#e7e9ea; --muted:#71767b; --line:#2f3336; --accent:#1d9bf0; --accent-2:#1d9bf0; --accent-2-ink:#00131f; --warn:#ffd9a3; --btn-ink:#fff }
+    [data-theme="buran"]{ --bg:#0b0c0e; --card:#121418; --ink:#f0f1f3; --muted:#a2a8b3; --line:#1f232b; --accent:#d52b1e; --accent-2:#84b6ff; --accent-2-ink:#06121f; --warn:#ffcc66; --btn-ink:#fff }
+    [data-theme="halloween"]{ --bg:#0b0a12; --card:#13111b; --ink:#f7efe4; --muted:#b7a8c6; --line:#241f33; --accent:#ff7a00; --accent-2:#39ff88; --accent-2-ink:#02150a; --warn:#ffd39b; --btn-ink:#1a0e05 }
+
+    *{ box-sizing:border-box } html,body{ height:100% }
+    body{ margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 var(--font) }
+    header{ position:sticky; top:0; z-index:3; background:linear-gradient(180deg, color-mix(in srgb, var(--card) 85%, transparent), transparent); backdrop-filter: blur(6px); border-bottom:1px solid var(--line) }
+    .wrap{ max-width:860px; margin:0 auto; padding:16px }
+    .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px }
+    .brand{ display:flex; align-items:center; gap:12px }
     .logo{ width:32px; height:32px; border-radius:10px; background:var(--bg); border:1px solid var(--line); display:grid; place-items:center }
-    .logo::after{ content:'¢'; color:var(--accent); font-size:20px; }
-    h1{ margin:0 0 4px; font-size:22px; letter-spacing:.2px; }
+    .logo::after{ content:'¢'; color:var(--accent); font-size:20px }
+    h1{ margin:0 0 4px; font-size:22px; letter-spacing:.2px }
     .sub{ color:var(--muted); font-size:13px }
-    .btn{ border:0; border-radius:12px; padding:10px 14px; background:linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 75%, #000 25%)); color:var(--btn-ink, #28150a); font-weight:700; cursor:pointer; box-shadow:0 6px 18px color-mix(in srgb, var(--accent) 25%, transparent), inset 0 1px 0 rgba(255,255,255,.15); }
-    .btn[disabled]{ opacity:.55; cursor:not-allowed; }
-    input{ width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:color-mix(in srgb, var(--bg) 90%, black 10%); color:var(--ink); font: inherit; }
-    input:focus{ outline:none; border-color:color-mix(in srgb, var(--accent-2) 60%, #000 40%); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent-2) 20%, transparent); }
-    .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; margin:20px 0; box-shadow:0 10px 30px rgba(0,0,0,.2); }
-    label{ display:block; margin-bottom:6px; color:var(--muted); font-size:14px; }
-    .error{ color:var(--bad); font-size:13px; margin-top:4px; }
-    .theme-switch{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
-    select{ padding:6px 10px; border-radius:10px; background:var(--card); color:var(--ink); border:1px solid var(--line); }
+    .btn{ border:0; border-radius:12px; padding:10px 14px; background:linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 75%, #000 25%)); color:var(--btn-ink, #28150a); font-weight:700; cursor:pointer; box-shadow:0 6px 18px color-mix(in srgb, var(--accent) 25%, transparent), inset 0 1px 0 rgba(255,255,255,.15) }
+    .btn[disabled]{ opacity:.55; cursor:not-allowed }
+    input{ width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:color-mix(in srgb, var(--bg) 90%, black 10%); color:var(--ink); font:inherit }
+    input:focus{ outline:none; border-color:color-mix(in srgb, var(--accent-2) 60%, #000 40%); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent-2) 20%, transparent) }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; margin:20px 0; box-shadow:0 10px 30px rgba(0,0,0,.2) }
+    label{ display:block; margin-bottom:6px; color:var(--muted); font-size:14px }
+    .error{ color:var(--bad); font-size:13px; margin-top:4px }
+    .theme-switch{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted) }
+    select{ padding:6px 10px; border-radius:10px; background:var(--card); color:var(--ink); border:1px solid var(--line) }
     footer{ color:var(--muted); font-size:12px; margin:36px 0; text-align:center }
   </style>
 </head>
@@ -115,6 +81,7 @@
       </div>
     </div>
   </header>
+
   <main class="wrap">
     <div class="card" id="loginCard">
       <h2 style="margin-top:0;">Sign In</h2>
@@ -128,6 +95,7 @@
       </form>
       <p style="margin-top:12px; font-size:14px;">Don’t have an account? <a href="#" id="showSignup" style="color:var(--accent); text-decoration:none;">Sign up</a></p>
     </div>
+
     <div class="card" id="signupCard" style="display:none;">
       <h2 style="margin-top:0;">Sign Up</h2>
       <form id="signupForm">
@@ -141,74 +109,66 @@
       <p style="margin-top:12px; font-size:14px;">Already have an account? <a href="#" id="showLogin" style="color:var(--accent); text-decoration:none;">Sign in</a></p>
     </div>
   </main>
+
   <footer>
     <div>© 2025 ThreadlessCoin. Earn while you idle.</div>
   </footer>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
   <script>
-  // Supabase initialization: copy your project URL and anon key here
-  const SUPABASE_URL = "https://ltxuqodtgzuculryimwe.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0eHVxb2R0Z3p1Y3VscnlpbXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0ODAxMDksImV4cCI6MjA3NDA1NjEwOX0.nxGsleK3F0lsypzXtZeDPsy2I2JP3uJBtBtd2s5LkEI";
-  // Create a dedicated client; avoid shadowing the global `supabase` constructor
-  const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // IMPORTANT: don't shadow 'supabase' identifier. Use window.supabase and a new var.
+    const SUPABASE_URL = "https://ltxuqodtgzuculryimwe.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0eHVxb2R0Z3p1Y3VscnlpbXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0ODAxMDksImV4cCI6MjA3NDA1NjEwOX0.nxGsleK3F0lsypzXtZeDPsy2I2JP3uJBtBtd2s5LkEI";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); /* :contentReference[oaicite:4]{index=4} */
 
-  // Theme persistence
-  const themeSelect = document.getElementById('themeSelect');
-  const savedTheme = localStorage.getItem('threadlesscoin_theme') || 'forest';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  themeSelect.value = savedTheme;
-  themeSelect.addEventListener('change', () => {
-    const t = themeSelect.value;
-    document.documentElement.setAttribute('data-theme', t);
-    localStorage.setItem('threadlesscoin_theme', t);
-  });
+    // Theme persistence
+    const themeSelect = document.getElementById('themeSelect');
+    const savedTheme = localStorage.getItem('threadlesscoin_theme') || 'forest';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    themeSelect.value = savedTheme;
+    themeSelect.addEventListener('change', () => {
+      const t = themeSelect.value;
+      document.documentElement.setAttribute('data-theme', t);
+      localStorage.setItem('threadlesscoin_theme', t);
+    });
 
-  // Toggle between login and signup cards
-  document.getElementById('showSignup').addEventListener('click', (e) => {
-    e.preventDefault(); document.getElementById('loginCard').style.display='none'; document.getElementById('signupCard').style.display='block';
-  });
-  document.getElementById('showLogin').addEventListener('click', (e) => {
-    e.preventDefault(); document.getElementById('signupCard').style.display='none'; document.getElementById('loginCard').style.display='block';
-  });
+    // Toggle auth cards
+    document.getElementById('showSignup').addEventListener('click', (e) => {
+      e.preventDefault(); loginCard.style.display='none'; signupCard.style.display='block';
+    });
+    document.getElementById('showLogin').addEventListener('click', (e) => {
+      e.preventDefault(); signupCard.style.display='none'; loginCard.style.display='block';
+    });
 
-  // Handle sign in
-  document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value;
-    const errEl = document.getElementById('loginError');
-    errEl.style.display = 'none';
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
-    if (error) {
-      errEl.textContent = error.message || 'Login failed';
-      errEl.style.display = 'block';
-    } else {
-      // redirect to index
+    // Sign in
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginError.style.display = 'none';
+      const { error } = await sb.auth.signInWithPassword({
+        email: loginEmail.value.trim(),
+        password: loginPassword.value
+      });
+      if (error){ loginError.textContent = error.message || 'Login failed'; loginError.style.display='block'; return; }
       location.href = 'index.html';
-    }
-  });
+    });
 
-  // Handle sign up
-  document.getElementById('signupForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('signupEmail').value.trim();
-    const password = document.getElementById('signupPassword').value;
-    const errEl = document.getElementById('signupError');
-    errEl.style.display = 'none';
-    const { data, error } = await client.auth.signUp({ email, password });
-    if (error) {
-      errEl.textContent = error.message || 'Sign up failed';
-      errEl.style.display = 'block';
-    } else {
-      // Insert a row in balances for new user
-      const userId = data.user?.id;
-      if (userId) {
-        await client.from('balances').insert({ user_id: userId, balance: 0, last_generated: new Date().toISOString() });
+    // Sign up
+    signupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      signupError.style.display = 'none';
+      const { data, error } = await sb.auth.signUp({
+        email: signupEmail.value.trim(),
+        password: signupPassword.value
+      });
+      if (error){ signupError.textContent = error.message || 'Sign up failed'; signupError.style.display='block'; return; }
+
+      // Ensure balances row exists for user (insert allowed by policy)
+      const uid = data.user?.id;
+      if (uid){
+        await sb.from('balances').insert({ user_id: uid, balance: 0, last_generated: new Date().toISOString() }).catch(()=>{});
       }
-      // Redirect to index
       location.href = 'index.html';
-    }
-  });
+    });
   </script>
 </body>
 </html>
