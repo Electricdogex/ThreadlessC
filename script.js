@@ -11,8 +11,8 @@
 // Configure your Supabase project URL and anon key here. These are the same
 // credentials used by the Threadless alpha prototype; replace with your
 // own project values for production use.
-const SUPABASE_URL = "https://hqwerxoapoczigetylfj.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhxd2VyeG9hcG9jemlnZXR5bGZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYyNTIyNTQsImV4cCI6MjA3MTgyODI1NH0.-MGwuD5NzuHo23GrYD-GsSdeGKoVh_ggDGqp0v7eXoo";
+const SUPABASE_URL = "https://ltxuqodtgzuculryimwe.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0eHVxb2R0Z3p1Y3VscnlpbXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0ODAxMDksImV4cCI6MjA3NDA1NjEwOX0.nxGsleK3F0lsypzXtZeDPsy2I2JP3uJBtBtd2s5LkEI";
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // UI elements; will be populated later
