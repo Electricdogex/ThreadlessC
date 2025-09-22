@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ThreadlessCoin</title>
 
-  <!-- CSP mirrors Threadless -->
+  <!-- Basic content security policy similar to Threadless -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
     base-uri 'none';
@@ -17,11 +17,12 @@
     upgrade-insecure-requests;">
   <meta name="robots" content="noindex, nofollow">
 
-  <!-- Favicon -->
+  <!-- Favicon: simple coin icon -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230e1613' stroke='%23ff8b3d' stroke-width='4'/%3E%3Ctext x='32' y='40' text-anchor='middle' font-size='28' fill='%23ff8b3d'%3E%C2%A2%3C/text%3E%3C/svg%3E">
 
-  <!-- Theme tokens & base styles (kept intact) -->
+  <!-- Theme tokens & base styles copied from Threadless -->
   <style>
+    /* === Theme tokens === */
     :root{
       --bg:#0e1613; --card:#122019; --ink:#e9f5ee; --muted:#9db7ab; --line:#1e2e27;
       --accent:#ff8b3d; --accent-2:#1f9d68; --accent-2-ink:#06120d; --warn:#ffd08f; --bad:#ff8c8c;
@@ -35,51 +36,95 @@
     [data-theme="mono"]{ --bg:#0c0c0c; --card:#141414; --ink:#f5f5f5; --muted:#bcbcbc; --line:#202020; --accent:#ffffff; --accent-2:#d0d0d0; --accent-2-ink:#121212; --warn:#ffd08f }
 
     [data-theme="x"]{
-      --bg:#000; --card:#0a0a0a; --ink:#e7e9ea; --muted:#71767b; --line:#2f3336;
-      --accent:#1d9bf0; --accent-2:#1d9bf0; --accent-2-ink:#00131f; --warn:#ffd9a3; --btn-ink:#fff;
+      --bg:#000000;
+      --card:#0a0a0a;
+      --ink:#e7e9ea;
+      --muted:#71767b;
+      --line:#2f3336;
+      --accent:#1d9bf0;
+      --accent-2:#1d9bf0;
+      --accent-2-ink:#00131f;
+      --warn:#ffd9a3;
+      --btn-ink:#ffffff;
     }
     [data-theme="buran"]{
-      --bg:#0b0c0e; --card:#121418; --ink:#f0f1f3; --muted:#a2a8b3; --line:#1f232b;
-      --accent:#d52b1e; --accent-2:#84b6ff; --accent-2-ink:#06121f; --warn:#ffcc66; --btn-ink:#fff;
+      --bg:#0b0c0e;
+      --card:#121418;
+      --ink:#f0f1f3;
+      --muted:#a2a8b3;
+      --line:#1f232b;
+      --accent:#d52b1e;
+      --accent-2:#84b6ff;
+      --accent-2-ink:#06121f;
+      --warn:#ffcc66;
+      --btn-ink:#ffffff;
     }
     [data-theme="halloween"]{
-      --bg:#0b0a12; --card:#13111b; --ink:#f7efe4; --muted:#b7a8c6; --line:#241f33;
-      --accent:#ff7a00; --accent-2:#39ff88; --accent-2-ink:#02150a; --warn:#ffd39b; --btn-ink:#1a0e05;
+      --bg:#0b0a12; --card:#13111b; --ink:#f7efe4; --muted:#b7a8c6; --line:#241f33; --accent:#ff7a00; --accent-2:#39ff88; --accent-2-ink:#02150a; --warn:#ffd39b; --btn-ink:#1a0e05;
     }
 
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{ margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 var(--font); }
+    *{ box-sizing:border-box }
+    html,body{ height:100% }
+    body{
+      margin:0;
+      background: var(--bg);
+      color:var(--ink);
+      font:16px/1.5 var(--font);
+    }
 
-    header{ position:sticky; top:0; z-index:3; background:linear-gradient(180deg, color-mix(in srgb, var(--card) 85%, transparent), transparent); backdrop-filter: blur(6px); border-bottom:1px solid var(--line) }
-    .wrap{ max-width:860px; margin:0 auto; padding:16px }
-    .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px }
-    .brand{ display:flex; align-items:center; gap:12px }
-    .logo{ width:32px;height:32px;border-radius:10px;background:var(--bg);border:1px solid var(--line); display:grid; place-items:center }
+    header{
+      position:sticky; top:0; z-index:3;
+      background:linear-gradient(180deg, color-mix(in srgb, var(--card) 85%, transparent), transparent);
+      backdrop-filter: blur(6px);
+      border-bottom:1px solid var(--line);
+    }
+
+    .wrap{ max-width:860px; margin:0 auto; padding:16px; }
+    .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .brand{ display:flex; align-items:center; gap:12px; }
+    .logo{ width:32px; height:32px; border-radius:10px; background:var(--bg); border:1px solid var(--line); display:grid; place-items:center }
     .logo::after{ content:'¢'; color:var(--accent); font-size:20px; }
-    h1{ margin:0 0 4px; font-size:22px; letter-spacing:.2px }
+    h1{ margin:0 0 4px; font-size:22px; letter-spacing:.2px; }
     .sub{ color:var(--muted); font-size:13px }
     .pill{ font-size:12px; color:var(--muted) }
 
-    .btn{ border:0; border-radius:12px; padding:10px 14px; background:linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 75%, #000 25%)); color:var(--btn-ink, #28150a); font-weight:700; cursor:pointer; box-shadow:0 6px 18px color-mix(in srgb, var(--accent) 25%, transparent), inset 0 1px 0 rgba(255,255,255,.15) }
-    .btn[disabled]{ opacity:.55; cursor:not-allowed }
-    input, select, textarea{ width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:color-mix(in srgb, var(--bg) 90%, black 10%); color:var(--ink); font:inherit }
-    input:focus, textarea:focus{ outline:none; border-color:color-mix(in srgb, var(--accent-2) 60%, #000 40%); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent-2) 20%, transparent) }
+    .btn{
+      border:0; border-radius:12px; padding:10px 14px;
+      background:linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 75%, #000 25%));
+      color:var(--btn-ink, #28150a); font-weight:700; cursor:pointer;
+      box-shadow:0 6px 18px color-mix(in srgb, var(--accent) 25%, transparent), inset 0 1px 0 rgba(255,255,255,.15);
+    }
+    .btn[disabled]{ opacity:.55; cursor:not-allowed; }
 
-    .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin:20px 0; box-shadow:0 10px 30px rgba(0,0,0,.2) }
-    .row{ display:flex; gap:12px; align-items:center }
-    .row > *:first-child{ flex:1 }
-    .text-right{ text-align:right }
-    .passid{ font-family:monospace; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:8px; margin-top:8px; word-break:break-all }
+    input, select, textarea{
+      width:100%; padding:10px; border-radius:10px; border:1px solid var(--line);
+      background:color-mix(in srgb, var(--bg) 90%, black 10%); color:var(--ink); font: inherit;
+    }
+    input:focus, textarea:focus{ outline:none; border-color:color-mix(in srgb, var(--accent-2) 60%, #000 40%); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent-2) 20%, transparent); }
 
+    .card{
+      background:var(--card); border:1px solid var(--line); border-radius:16px;
+      padding:16px; margin:20px 0; box-shadow:0 10px 30px rgba(0,0,0,.2);
+    }
+    .row{ display:flex; gap:12px; align-items:center; }
+    .row > *:first-child{ flex:1; }
+    .text-right{ text-align:right; }
+    .passid{
+      font-family:monospace; background:var(--bg); border:1px solid var(--line); border-radius:10px;
+      padding:8px; margin-top:8px; word-break:break-all;
+    }
     footer{ color:var(--muted); font-size:12px; margin:36px 0; text-align:center }
 
-    /* Supply counter styling */
-    .statbar{ display:flex; flex-direction:column; gap:8px }
-    .statbar .title{ font-size:13px; color:var(--muted) }
-    .statbar .big{ font-size:22px; font-weight:800 }
-    .progress{ height:10px; border-radius:999px; background:color-mix(in srgb, var(--bg) 85%, black 15%); border:1px solid var(--line); overflow:hidden }
-    .progress > span{ display:block; height:100%; width:0%; background:linear-gradient(90deg, var(--accent-2), var(--accent)); transition:width .6s ease }
+    /* Mobile tweaks (mirrors Threadless responsive module spirit) */
+    @media (max-width: 720px){
+      .wrap{ padding:12px; }
+      .topbar{ flex-wrap:wrap; align-items:flex-start; gap:8px; }
+      .brand{ flex:1 1 100%; }
+      h1{ font-size:20px; }
+      .sub{ font-size:12px; }
+      .row{ flex-wrap:wrap; }
+      .btn{ width:100%; }
+    }
   </style>
 </head>
 <body>
@@ -115,26 +160,15 @@
     </div>
   </header>
 
-  <!-- Main: supply bar first, then app -->
-  <main class="wrap">
-    <div id="supplyBar" class="card statbar" aria-live="polite" style="display:none;">
-      <div class="title">Remaining supply</div>
-      <div class="row" style="align-items:baseline">
-        <div class="big"><span id="remainingSupply">—</span></div>
-        <div class="pill">of <span id="totalSupply">1,000,000,000</span></div>
-      </div>
-      <div class="progress"><span id="supplyProgress"></span></div>
-      <div class="pill" id="mintedBlurb"></div>
-    </div>
-
-    <div id="app"></div>
+  <main class="wrap" id="app">
+    <!-- supply bar + app content render here -->
   </main>
 
   <footer>
     <div>© 2025 ThreadlessCoin. A fun experiment with Supabase and GitHub Pages.</div>
   </footer>
 
-  <!-- Supabase client -->
+  <!-- Supabase client (must come BEFORE script.js) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
   <!-- App logic -->
   <script src="./script.js"></script>
