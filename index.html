@@ -47,7 +47,6 @@
       --warn:#ffd9a3;
       --btn-ink:#ffffff;
     }
-
     [data-theme="buran"]{
       --bg:#0b0c0e;
       --card:#121418;
@@ -60,19 +59,8 @@
       --warn:#ffcc66;
       --btn-ink:#ffffff;
     }
-
-    /* Additional seasonal/halloween theme from Threadless if desired */
     [data-theme="halloween"]{
-      --bg:#0b0a12;
-      --card:#13111b;
-      --ink:#f7efe4;
-      --muted:#b7a8c6;
-      --line:#241f33;
-      --accent:#ff7a00;
-      --accent-2:#39ff88;
-      --accent-2-ink:#02150a;
-      --warn:#ffd39b;
-      --btn-ink:#1a0e05;
+      --bg:#0b0a12; --card:#13111b; --ink:#f7efe4; --muted:#b7a8c6; --line:#241f33; --accent:#ff7a00; --accent-2:#39ff88; --accent-2-ink:#02150a; --warn:#ffd39b; --btn-ink:#1a0e05;
     }
 
     *{ box-sizing:border-box }
@@ -85,9 +73,7 @@
     }
 
     header{
-      position:sticky;
-      top:0;
-      z-index:3;
+      position:sticky; top:0; z-index:3;
       background:linear-gradient(180deg, color-mix(in srgb, var(--card) 85%, transparent), transparent);
       backdrop-filter: blur(6px);
       border-bottom:1px solid var(--line);
@@ -102,62 +88,42 @@
     .sub{ color:var(--muted); font-size:13px }
     .pill{ font-size:12px; color:var(--muted) }
 
-    /* Buttons and inputs */
-    .btn{ border:0; border-radius:12px; padding:10px 14px; background:linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 75%, #000 25%)); color:var(--btn-ink, #28150a); font-weight:700; cursor:pointer; box-shadow:0 6px 18px color-mix(in srgb, var(--accent) 25%, transparent), inset 0 1px 0 rgba(255,255,255,.15); }
+    .btn{
+      border:0; border-radius:12px; padding:10px 14px;
+      background:linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 75%, #000 25%));
+      color:var(--btn-ink, #28150a); font-weight:700; cursor:pointer;
+      box-shadow:0 6px 18px color-mix(in srgb, var(--accent) 25%, transparent), inset 0 1px 0 rgba(255,255,255,.15);
+    }
     .btn[disabled]{ opacity:.55; cursor:not-allowed; }
 
     input, select, textarea{
-      width:100%;
-      padding:10px;
-      border-radius:10px;
-      border:1px solid var(--line);
-      background:color-mix(in srgb, var(--bg) 90%, black 10%);
-      color:var(--ink);
-      font: inherit;
+      width:100%; padding:10px; border-radius:10px; border:1px solid var(--line);
+      background:color-mix(in srgb, var(--bg) 90%, black 10%); color:var(--ink); font: inherit;
     }
     input:focus, textarea:focus{ outline:none; border-color:color-mix(in srgb, var(--accent-2) 60%, #000 40%); box-shadow:0 0 0 4px color-mix(in srgb, var(--accent-2) 20%, transparent); }
 
     .card{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:16px;
-      margin:20px 0;
-      box-shadow:0 10px 30px rgba(0,0,0,.2);
+      background:var(--card); border:1px solid var(--line); border-radius:16px;
+      padding:16px; margin:20px 0; box-shadow:0 10px 30px rgba(0,0,0,.2);
     }
-
     .row{ display:flex; gap:12px; align-items:center; }
     .row > *:first-child{ flex:1; }
     .text-right{ text-align:right; }
     .passid{
-      font-family:monospace;
-      background:var(--bg);
-      border:1px solid var(--line);
-      border-radius:10px;
-      padding:8px;
-      margin-top:8px;
-      word-break:break-all;
+      font-family:monospace; background:var(--bg); border:1px solid var(--line); border-radius:10px;
+      padding:8px; margin-top:8px; word-break:break-all;
     }
     footer{ color:var(--muted); font-size:12px; margin:36px 0; text-align:center }
 
-    /* supply banner */
-    .supply-banner{
-      background:linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 38%), var(--card);
-      border:1px solid var(--line);
-      border-radius:16px;
-      box-shadow:0 10px 30px rgba(0,0,0,.2);
-      padding:14px 16px;
-      display:none;
-    }
-    .supply-banner .label{ color:var(--muted); font-size:13px; }
-    .supply-banner .value{ font-weight:800; font-size:18px; }
-    .supply-banner .note{ color:var(--muted); font-size:12px; margin-top:4px; }
+    /* Mobile tweaks (mirrors Threadless responsive module spirit) */
     @media (max-width: 720px){
       .wrap{ padding:12px; }
-      .topbar{ flex-wrap: wrap; align-items: flex-start; }
-      .brand{ flex: 1 1 100%; min-width: 0; }
-      .brand h1{ font-size:20px; }
-      .brand .sub{ font-size:12px; }
+      .topbar{ flex-wrap:wrap; align-items:flex-start; gap:8px; }
+      .brand{ flex:1 1 100%; }
+      h1{ font-size:20px; }
+      .sub{ font-size:12px; }
+      .row{ flex-wrap:wrap; }
+      .btn{ width:100%; }
     }
   </style>
 </head>
@@ -173,7 +139,6 @@
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
-          <!-- theme selection -->
           <div class="theme-switch">
             <label for="themeSelect" style="font-size:12px; color:var(--muted);">Theme:</label>
             <select id="themeSelect" class="theme-select" aria-label="Select theme">
@@ -195,29 +160,17 @@
     </div>
   </header>
 
-  <!-- Supply banner (above Welcome, below header) -->
-  <section class="wrap" aria-live="polite">
-    <div id="supplyBanner" class="supply-banner">
-      <div class="row" style="justify-content:space-between;">
-        <div class="label">Network supply remaining</div>
-        <div id="supplyRemaining" class="value">—</div>
-      </div>
-      <div id="supplyNote" class="note" style="display:none;">approximate; updates every 30s</div>
-    </div>
-  </section>
-
   <main class="wrap" id="app">
-    <!-- Content is populated by script.js after auth -->
+    <!-- supply bar + app content render here -->
   </main>
 
   <footer>
     <div>© 2025 ThreadlessCoin. A fun experiment with Supabase and GitHub Pages.</div>
   </footer>
 
-  <!-- Supabase client must load before your script -->
+  <!-- Supabase client (must come BEFORE script.js) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
-
-  <!-- App logic (cache-busted) -->
-  <script src="./script.js?v=7" defer></script>
+  <!-- App logic -->
+  <script src="./script.js"></script>
 </body>
 </html>
