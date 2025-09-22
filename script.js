@@ -161,48 +161,69 @@ function renderApp(user, balance, lastGenerated) {
 
   // Redeem PassID
   document.getElementById('redeemBtn').addEventListener('click', async () => {
-    const passidInput = document.getElementById('redeemInput');
-    const messageEl = document.getElementById('redeemMessage');
-    messageEl.style.display = 'none';
-    const pid = passidInput.value.trim();
-    if (!pid) return;
+  const passidInput = document.getElementById('redeemInput');
+  const messageEl = document.getElementById('redeemMessage');
+  messageEl.style.display = 'none';
 
-    const { data: rec, error } = await sb.from('passids').select('*').eq('passid', pid).single();
-    if (error || !rec) {
-      messageEl.textContent = 'Invalid passid.';
-      messageEl.style.display = 'block';
-      return;
-    }
-    const { data: { session } } = await sb.auth.getSession();
-    const userId = session?.user?.id;
-    if (!userId) { location.href = 'login.html'; return; }
-    if (rec.redeemed_by) {
-      messageEl.textContent = 'This passid has already been redeemed.';
-      messageEl.style.display = 'block';
-      return;
-    }
-    if (rec.user_id === userId) {
-      messageEl.textContent = 'You cannot redeem your own passid.';
-      messageEl.style.display = 'block';
-      return;
-    }
-    const { error: updateErr } = await sb.from('passids').update({ redeemed_by: userId, redeemed_at: new Date().toISOString() }).eq('id', rec.id);
-    if (updateErr) {
-      messageEl.textContent = updateErr.message || 'Could not redeem passid.';
-      messageEl.style.display = 'block';
-      return;
-    }
-    const { data: balRow2 } = await sb.from('balances').select('balance').eq('user_id', userId).single();
-    const userBal = parseFloat(balRow2?.balance || 0);
-    const newBal = userBal + parseFloat(rec.amount);
-    await sb.from('balances').update({ balance: newBal }).eq('user_id', userId);
-    document.getElementById('balanceDisplay').textContent = newBal.toFixed(4) + ' ¢';
-    messageEl.textContent = `Redeemed ${Number(rec.amount).toFixed(4)} ¢ successfully!`;
+  const pid = passidInput.value.trim();
+  if (!pid) return;
+
+  // Look up the passid; maybeSingle() avoids 406 when 0 rows match
+  const { data: rec, error } = await supabase
+    .from('passids')
+    .select('id, user_id, amount, redeemed_by, redeemed_at')
+    .eq('passid', pid)
+    .maybeSingle();
+
+  if (error) {
+    messageEl.textContent = error.message || 'Could not check passid.';
     messageEl.style.display = 'block';
-    passidInput.value = '';
-    // Refresh supply after moving funds out of unredeemed pool
-    refreshSupplyOnce();
-  });
+    return;
+  }
+  if (!rec) {
+    messageEl.textContent = 'Invalid passid.';
+    messageEl.style.display = 'block';
+    return;
+  }
+  if (rec.redeemed_by) {
+    messageEl.textContent = 'This passid has already been redeemed.';
+    messageEl.style.display = 'block';
+    return;
+  }
+  if (rec.user_id === user.id) {
+    messageEl.textContent = 'You cannot redeem your own passid.';
+    messageEl.style.display = 'block';
+    return;
+  }
+
+  // Mark as redeemed
+  const { error: updateErr } = await supabase
+    .from('passids')
+    .update({ redeemed_by: user.id, redeemed_at: new Date().toISOString() })
+    .eq('id', rec.id);
+
+  if (updateErr) {
+    messageEl.textContent = updateErr.message || 'Could not redeem passid.';
+    messageEl.style.display = 'block';
+    return;
+  }
+
+  // Credit the user’s balance
+  const { data: balRow2 } = await supabase
+    .from('balances')
+    .select('balance')
+    .eq('user_id', user.id)
+    .single(); // this one should always exist for a logged-in user
+
+  const userBal = parseFloat(balRow2?.balance || 0);
+  const newBal = userBal + parseFloat(rec.amount);
+  await supabase.from('balances').update({ balance: newBal }).eq('user_id', user.id);
+
+  document.getElementById('balanceDisplay').textContent = newBal.toFixed(4) + ' ¢';
+  messageEl.textContent = `Redeemed ${Number(rec.amount).toFixed(4)} ¢ successfully!`;
+  messageEl.style.display = 'block';
+  passidInput.value = '';
+});
 }
 
 // Continuous minting (client-timed)
