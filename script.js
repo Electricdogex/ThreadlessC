@@ -1,27 +1,33 @@
 // ThreadlessCoin front-end logic
-// - Fixes TDZ bug by using `window.supabase.createClient(...)` (stored as `sb`)
-// - Rate: 100 coins/hour; Max supply: 1,000,000,000
-// - Adds a live "remaining supply" counter above the app card
-//
-// Tables expected:
-//   balances(user_id uuid pk, balance numeric, last_generated timestamptz)
-//   passids(id serial pk, user_id uuid, amount numeric, passid text unique, redeemed_by uuid, redeemed_at timestamptz)
+// - Fixes Supabase init (uses `sb` client)
+// - Uses .maybeSingle() to avoid 406 on empty selects
+// - Adds live "remaining supply" banner (TOTAL_SUPPLY - minted)
+// - Keeps your original styling & mobile behavior
 
+// ====== CONFIG ======
 const SUPABASE_URL = "https://ltxuqodtgzuculryimwe.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0eHVxb2R0Z3p1Y3VscnlpbXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0ODAxMDksImV4cCI6MjA3NDA1NjEwOX0.nxGsleK3F0lsypzXtZeDPsy2I2JP3uJBtBtd2s5LkEI";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Config
-const RATE_PER_HOUR = 100;                 // coins per hour
-const MAX_SUPPLY = 1_000_000_000;          // total cap
-const COINS_PER_SECOND = RATE_PER_HOUR / 3600;
+// Economics (your current plan)
+const TOTAL_SUPPLY = 1_000_000_000;
+const COINS_PER_HOUR = 100; // (was 0.1 before)
+const COINS_PER_SECOND = COINS_PER_HOUR / 3600;
 
+// ====== Supabase client ======
+const { createClient } = window.supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+window.sb = sb; // helpful for console debugging
+
+// ====== UI refs ======
 const app = document.getElementById('app');
 const userStatus = document.getElementById('userStatus');
 const logoutBtn = document.getElementById('logoutBtn');
 const themeSelect = document.getElementById('themeSelect');
+const supplyBanner = document.getElementById('supplyBanner');
+const supplyRemainingEl = document.getElementById('supplyRemaining');
+const supplyNoteEl = document.getElementById('supplyNote');
 
-// Apply saved theme
+// Theme (persist like Threadless)
 const savedTheme = localStorage.getItem('threadlesscoin_theme') || 'forest';
 document.documentElement.setAttribute('data-theme', savedTheme);
 if (themeSelect) {
@@ -33,21 +39,13 @@ if (themeSelect) {
   });
 }
 
-// Boot
-init();
-
+// ====== App boot ======
 async function init() {
-  if (!window.supabase) {
-    app.innerHTML = `<div class="card">Supabase failed to load. Check the CDN script tag.</div>`;
-    return;
-  }
-
   const { data: { session } } = await sb.auth.getSession();
   if (!session) {
     window.location.href = 'login.html';
     return;
   }
-
   const user = session.user;
   userStatus.textContent = user.email;
   logoutBtn.style.display = 'inline-block';
@@ -57,53 +55,51 @@ async function init() {
   });
 
   // Ensure balances row exists
-  const { data: balData, error: balErr } = await sb
+  let balance = 0;
+  let lastGeneratedISO = new Date().toISOString();
+
+  let { data: balData, error: balErr, status } = await sb
     .from('balances')
     .select('balance, last_generated')
     .eq('user_id', user.id)
     .maybeSingle();
 
-  let balance = 0;
-  let lastGenerated = new Date().toISOString();
-
-  if (!balData) {
-    await sb.from('balances').insert({ user_id: user.id, balance: 0, last_generated: lastGenerated });
-  } else {
+  if (!balData && !balErr) {
+    // no row yet → create it
+    await sb.from('balances').insert({ user_id: user.id, balance: 0, last_generated: lastGeneratedISO });
+    balance = 0;
+  } else if (balData) {
     balance = Number(balData.balance || 0);
-    lastGenerated = balData.last_generated || lastGenerated;
+    lastGeneratedISO = balData.last_generated || lastGeneratedISO;
+  } else if (balErr) {
+    console.warn('balances read error', balErr);
   }
 
-  renderAppShell();                  // supply bar container + app container
-  renderApp(user, balance, lastGenerated);
-  startMinting(user, balance, lastGenerated);
-  startSupplyTicker();               // live remaining supply
+  renderApp(user, balance);
+  startMinting(user, balance, lastGeneratedISO);
+
+  // Supply banner (best-effort if RLS allows global reads)
+  try {
+    supplyBanner.style.display = 'block';
+    supplyNoteEl.style.display = 'block';
+    await refreshSupply();
+    setInterval(refreshSupply, 30000);
+  } catch (e) {
+    console.warn('supply view not available (RLS likely). Hide banner.', e);
+    supplyBanner.style.display = 'none';
+  }
 }
 
-// Renders a fixed “supply bar” spot + clears app
-function renderAppShell(){
+// ====== Rendering ======
+function renderApp(user, balance) {
   app.innerHTML = '';
-  const supplyCard = document.createElement('div');
-  supplyCard.className = 'card';
-  supplyCard.id = 'supplyCard';
-  supplyCard.innerHTML = `
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-      <div><strong>Remaining supply</strong></div>
-      <div id="supplyRemaining" style="font-weight:800; font-size:18px;">calculating…</div>
-    </div>
-    <div style="margin-top:6px; color:var(--muted); font-size:12px;">Max: ${MAX_SUPPLY.toLocaleString()}</div>
-  `;
-  app.appendChild(supplyCard);
-}
-
-// Main UI
-function renderApp(user, balance, lastGenerated) {
   const container = document.createElement('div');
   container.className = 'card';
   container.innerHTML = `
     <h2 style="margin-top:0;">Welcome, ${user.email}</h2>
     <p>Your current balance:</p>
-    <h3 id="balanceDisplay" style="margin:6px 0 16px; font-size:26px;">${balance.toFixed(4)} ¢</h3>
-    <p>Coins accumulate while this page is open. Every hour you earn <strong>${RATE_PER_HOUR}</strong> ThreadlessCoin.</p>
+    <h3 id="balanceDisplay" style="margin:6px 0 16px; font-size:26px;">${Number(balance).toFixed(4)} ¢</h3>
+    <p>Coins accumulate while this page is open. Every hour you earn <strong>${COINS_PER_HOUR}</strong> ThreadlessCoin.</p>
 
     <div class="row" style="margin-top:20px;">
       <div>
@@ -128,12 +124,14 @@ function renderApp(user, balance, lastGenerated) {
     const amount = parseFloat(document.getElementById('amountInput').value);
     const output = document.getElementById('passidOutput');
     output.style.display = 'none';
+
     if (isNaN(amount) || amount <= 0) {
       output.textContent = 'Please enter a positive amount.';
       output.style.display = 'block';
       return;
     }
-    // Get latest balance
+
+    // Reload balance
     const { data: balRow } = await sb.from('balances').select('balance').eq('user_id', user.id).single();
     let currentBal = parseFloat(balRow?.balance || 0);
     if (currentBal < amount) {
@@ -141,163 +139,175 @@ function renderApp(user, balance, lastGenerated) {
       output.style.display = 'block';
       return;
     }
-    // Generate a long passid (uuid without dashes + random 16 hex)
-    const passid = (crypto.randomUUID().replace(/-/g, '') + [...crypto.getRandomValues(new Uint8Array(8))].map(b=>b.toString(16).padStart(2,'0')).join(''));
-    // Insert pass and deduct
-    const { error: insertErr } = await sb.from('passids').insert({ user_id: user.id, amount, passid, redeemed_by: null, redeemed_at: null });
-    if (insertErr) {
-      output.textContent = insertErr.message || 'Failed to create passid.';
+
+    // Generate passid
+    const passid = crypto.randomUUID().replace(/-/g, '');
+
+    // Insert passid then deduct
+    const { error: insErr } = await sb.from('passids').insert({
+      user_id: user.id, amount, passid, redeemed_by: null, redeemed_at: null
+    });
+    if (insErr) {
+      output.textContent = insErr.message || 'Failed to create passid.';
       output.style.display = 'block';
       return;
     }
     await sb.from('balances').update({ balance: currentBal - amount }).eq('user_id', user.id);
+
     document.getElementById('balanceDisplay').textContent = (currentBal - amount).toFixed(4) + ' ¢';
     output.textContent = `PassID created: ${passid}`;
     output.style.display = 'block';
     document.getElementById('amountInput').value = '';
-    // Refresh supply after creating an unredeemed pass
-    refreshSupplyOnce();
   });
 
-  // Redeem PassID
+  // Redeem PassID (uses maybeSingle to avoid 406)
   document.getElementById('redeemBtn').addEventListener('click', async () => {
-  const passidInput = document.getElementById('redeemInput');
-  const messageEl = document.getElementById('redeemMessage');
-  messageEl.style.display = 'none';
+    const passidInput = document.getElementById('redeemInput');
+    const messageEl = document.getElementById('redeemMessage');
+    messageEl.style.display = 'none';
+    const pid = passidInput.value.trim();
+    if (!pid) return;
 
-  const pid = passidInput.value.trim();
-  if (!pid) return;
+    const { data: rec, error } = await sb
+      .from('passids')
+      .select('id, user_id, amount, redeemed_by, redeemed_at')
+      .eq('passid', pid)
+      .maybeSingle();
 
-  // Look up the passid; maybeSingle() avoids 406 when 0 rows match
-  const { data: rec, error } = await supabase
-    .from('passids')
-    .select('id, user_id, amount, redeemed_by, redeemed_at')
-    .eq('passid', pid)
-    .maybeSingle();
+    if (error) {
+      messageEl.textContent = error.message || 'Could not check passid.';
+      messageEl.style.display = 'block';
+      return;
+    }
+    if (!rec) {
+      messageEl.textContent = 'Invalid passid.';
+      messageEl.style.display = 'block';
+      return;
+    }
+    if (rec.redeemed_by) {
+      messageEl.textContent = 'This passid has already been redeemed.';
+      messageEl.style.display = 'block';
+      return;
+    }
+    if (rec.user_id === user.id) {
+      messageEl.textContent = 'You cannot redeem your own passid.';
+      messageEl.style.display = 'block';
+      return;
+    }
 
-  if (error) {
-    messageEl.textContent = error.message || 'Could not check passid.';
+    const { error: updErr } = await sb
+      .from('passids')
+      .update({ redeemed_by: user.id, redeemed_at: new Date().toISOString() })
+      .eq('id', rec.id);
+    if (updErr) {
+      messageEl.textContent = updErr.message || 'Could not redeem passid.';
+      messageEl.style.display = 'block';
+      return;
+    }
+
+    const { data: balRow2 } = await sb
+      .from('balances')
+      .select('balance')
+      .eq('user_id', user.id)
+      .single();
+
+    const userBal = parseFloat(balRow2?.balance || 0);
+    const newBal = userBal + parseFloat(rec.amount);
+    await sb.from('balances').update({ balance: newBal }).eq('user_id', user.id);
+
+    document.getElementById('balanceDisplay').textContent = newBal.toFixed(4) + ' ¢';
+    messageEl.textContent = `Redeemed ${Number(rec.amount).toFixed(4)} ¢ successfully!`;
     messageEl.style.display = 'block';
-    return;
-  }
-  if (!rec) {
-    messageEl.textContent = 'Invalid passid.';
-    messageEl.style.display = 'block';
-    return;
-  }
-  if (rec.redeemed_by) {
-    messageEl.textContent = 'This passid has already been redeemed.';
-    messageEl.style.display = 'block';
-    return;
-  }
-  if (rec.user_id === user.id) {
-    messageEl.textContent = 'You cannot redeem your own passid.';
-    messageEl.style.display = 'block';
-    return;
-  }
-
-  // Mark as redeemed
-  const { error: updateErr } = await supabase
-    .from('passids')
-    .update({ redeemed_by: user.id, redeemed_at: new Date().toISOString() })
-    .eq('id', rec.id);
-
-  if (updateErr) {
-    messageEl.textContent = updateErr.message || 'Could not redeem passid.';
-    messageEl.style.display = 'block';
-    return;
-  }
-
-  // Credit the user’s balance
-  const { data: balRow2 } = await supabase
-    .from('balances')
-    .select('balance')
-    .eq('user_id', user.id)
-    .single(); // this one should always exist for a logged-in user
-
-  const userBal = parseFloat(balRow2?.balance || 0);
-  const newBal = userBal + parseFloat(rec.amount);
-  await supabase.from('balances').update({ balance: newBal }).eq('user_id', user.id);
-
-  document.getElementById('balanceDisplay').textContent = newBal.toFixed(4) + ' ¢';
-  messageEl.textContent = `Redeemed ${Number(rec.amount).toFixed(4)} ¢ successfully!`;
-  messageEl.style.display = 'block';
-  passidInput.value = '';
-});
+    passidInput.value = '';
+  });
 }
 
-// Continuous minting (client-timed)
-function startMinting(user, startingBalance, lastGenerated) {
-  let currentBalance = startingBalance;
-  let lastGen = new Date(lastGenerated).getTime();
-  let accumulatedSeconds = 0;
+// ====== Minting (client-side accrual) ======
+function startMinting(user, startingBalance, lastGeneratedISO) {
+  let currentBalance = Number(startingBalance || 0);
+  let lastGenMs = new Date(lastGeneratedISO || Date.now()).getTime();
+  let accumulate = 0;
 
-  // Catch up from lastGenerated -> now
+  // Catch-up on page load
   const now = Date.now();
-  if (now > lastGen) {
-    const elapsed = (now - lastGen) / 1000;
+  if (now > lastGenMs) {
+    const elapsed = (now - lastGenMs) / 1000;
     currentBalance += elapsed * COINS_PER_SECOND;
-    lastGen = now;
-    sb.from('balances').update({ balance: currentBalance, last_generated: new Date().toISOString() }).eq('user_id', user.id);
+    lastGenMs = now;
+    sb.from('balances').update({ balance: currentBalance, last_generated: new Date().toISOString() }).eq('user_id', user.id).catch(()=>{});
   }
-  const displayEl = document.getElementById('balanceDisplay');
-  if (displayEl) displayEl.textContent = currentBalance.toFixed(4) + ' ¢';
+  const display = document.getElementById('balanceDisplay');
+  if (display) display.textContent = currentBalance.toFixed(4) + ' ¢';
 
+  // Live accrual
   setInterval(async () => {
-    const now2 = Date.now();
-    const delta = (now2 - lastGen) / 1000;
-    lastGen = now2;
-    currentBalance += delta * COINS_PER_SECOND;
-    accumulatedSeconds += delta;
+    const t = Date.now();
+    const delta = (t - lastGenMs) / 1000;
+    lastGenMs = t;
+    const add = delta * COINS_PER_SECOND;
+    currentBalance += add;
+    accumulate += delta;
 
     const d = document.getElementById('balanceDisplay');
     if (d) d.textContent = currentBalance.toFixed(4) + ' ¢';
 
-    if (accumulatedSeconds >= 60) {
-      accumulatedSeconds = 0;
+    if (accumulate >= 60) {
+      accumulate = 0;
       await sb.from('balances').update({ balance: currentBalance, last_generated: new Date().toISOString() }).eq('user_id', user.id);
-      // Minting increases total supply; reflect it
-      refreshSupplyOnce();
+      // Optional: refresh supply after persistence
+      refreshSupply().catch(()=>{});
     }
   }, 1000);
 }
 
-/** Supply counter (simple client-side aggregation; fine for MVP) **/
-async function calcMintedApprox(){
-  // Sum balances (paged)
-  let minted = 0;
-  let from = 0;
-  const size = 1000;
-  while (true) {
-    const { data, error } = await sb.from('balances').select('balance').range(from, from + size - 1);
-    if (error) break;
-    for (const r of (data || [])) minted += Number(r.balance || 0);
-    if (!data || data.length < size) break;
-    from += size;
+// ====== Supply banner ======
+// We try to compute minted = SUM(all balances) + SUM(unredeemed passids)
+// If RLS blocks global reads, banner hides itself.
+async function refreshSupply() {
+  if (!supplyBanner) return;
+
+  // Try to fetch all rows in chunks (simple approach for small scale)
+  async function fetchAll(table, columns, buildFilter) {
+    const pageSize = 1000;
+    let from = 0;
+    let all = [];
+    while (true) {
+      let q = sb.from(table).select(columns).range(from, from + pageSize - 1);
+      if (buildFilter) q = buildFilter(q);
+      const { data, error } = await q;
+      if (error) throw error;
+      all = all.concat(data || []);
+      if (!data || data.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
   }
-  // Add unredeemed passids (they’re out of balances temporarily)
-  from = 0;
-  while (true) {
-    const { data, error } = await sb.from('passids').select('amount, redeemed_by').is('redeemed_by', null).range(from, from + size - 1);
-    if (error) break;
-    for (const r of (data || [])) minted += Number(r.amount || 0);
-    if (!data || data.length < size) break;
-    from += size;
+
+  // balances sum
+  let sumBalances = 0;
+  try {
+    const rows = await fetchAll('balances', 'balance');
+    sumBalances = rows.reduce((acc, r) => acc + Number(r.balance || 0), 0);
+  } catch (e) {
+    // Likely RLS — hide banner
+    supplyBanner.style.display = 'none';
+    throw e;
   }
-  return minted;
+
+  // unredeemed passids sum
+  let sumUnredeemed = 0;
+  try {
+    const rows = await fetchAll('passids', 'amount, redeemed_by', (q) => q.is('redeemed_by', null));
+    sumUnredeemed = rows.reduce((acc, r) => acc + Number(r.amount || 0), 0);
+  } catch (e) {
+    // If this fails but balances worked, still hide (incomplete picture)
+    supplyBanner.style.display = 'none';
+    throw e;
+  }
+
+  const minted = sumBalances + sumUnredeemed; // coins in balances + in codes
+  const remaining = Math.max(0, TOTAL_SUPPLY - minted);
+  supplyRemainingEl.textContent = `${Math.floor(remaining).toLocaleString()} / ${TOTAL_SUPPLY.toLocaleString()}`;
 }
 
-async function refreshSupplyOnce(){
-  const el = document.getElementById('supplyRemaining');
-  if (!el) return;
-  el.textContent = 'calculating…';
-  const minted = await calcMintedApprox();
-  const remaining = Math.max(0, MAX_SUPPLY - minted);
-  el.textContent = `${remaining.toLocaleString(undefined,{maximumFractionDigits:4})}`;
-}
-
-function startSupplyTicker(){
-  refreshSupplyOnce();
-  // Refresh every 30s
-  setInterval(refreshSupplyOnce, 30000);
-}
+init();
