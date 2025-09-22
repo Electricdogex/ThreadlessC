@@ -1,21 +1,35 @@
-// ThreadlessCoin front-end
-// - Fixes 'Cannot access supabase before initialization' by using `window.supabase`
-// - Handles 'no rows' (PGRST116) without killing the UI
-// - Mobile-friendly UI like Threadless
-// - Rate: 100 coins/hour; Max supply (display): 1,000,000,000
+// ThreadlessCoin front-end logic (with global supply counter)
+//
+// Tables expected:
+//   balances(user_id uuid pk/fk, balance numeric, last_generated timestamptz)
+//   passids(id bigserial pk, user_id uuid, amount numeric, passid text unique,
+//           redeemed_by uuid null, redeemed_at timestamptz null)
+//
+// RPC function expected (from SQL step):
+//   get_supply_stats() -> totals for minted & remaining.
 
-// --- Supabase client (CDN) ---
+// ======= CONFIG (use your project values) =======
 const SUPABASE_URL = "https://ltxuqodtgzuculryimwe.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0eHVxb2R0Z3p1Y3VscnlpbXdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0ODAxMDksImV4cCI6MjA3NDA1NjEwOX0.nxGsleK3F0lsypzXtZeDPsy2I2JP3uJBtBtd2s5LkEI";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); // per docs :contentReference[oaicite:7]{index=7}
+const TOTAL_SUPPLY = 1_000_000_000;            // 1B max
+const RATE_PER_HOUR = 100;                      // 100 coins/hour per active browser
+// ================================================
 
-// --- DOM refs ---
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// UI refs
+const mainWrap = document.querySelector('main.wrap');
 const app = document.getElementById('app');
 const userStatus = document.getElementById('userStatus');
 const logoutBtn = document.getElementById('logoutBtn');
 const themeSelect = document.getElementById('themeSelect');
+const supplyBar = document.getElementById('supplyBar');
+const remainingSupplyEl = document.getElementById('remainingSupply');
+const totalSupplyEl = document.getElementById('totalSupply');
+const progressEl = document.getElementById('supplyProgress');
+const mintedBlurbEl = document.getElementById('mintedBlurb');
 
-// Theme
+// Theme persistence
 const savedTheme = localStorage.getItem('threadlesscoin_theme') || 'forest';
 document.documentElement.setAttribute('data-theme', savedTheme);
 themeSelect.value = savedTheme;
@@ -25,188 +39,236 @@ themeSelect.addEventListener('change', () => {
   localStorage.setItem('threadlesscoin_theme', t);
 });
 
-// Utility: show inline error at top of app
-function showInlineError(msg){
-  let b = document.getElementById('tc_err');
-  if (!b){
-    b = document.createElement('div');
-    b.id = 'tc_err';
-    b.style.cssText = 'margin:12px 0;padding:10px;border:1px solid var(--line);background:color-mix(in srgb,var(--bg) 90%,black 10%);border-radius:10px;color:var(--warn);font-size:13px';
-    app.prepend(b);
-  }
-  b.textContent = msg;
-}
+// Number formatting
+const fmtInt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+const fmt4 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
-// Init
-window.addEventListener('DOMContentLoaded', init);
+// ======= APP BOOT =======
+init();
 
 async function init(){
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    window.location.href = 'login.html';
+    return;
+  }
+  const user = session.user;
+  userStatus.textContent = user.email;
+  logoutBtn.style.display = 'inline-block';
+  logoutBtn.addEventListener('click', async () => {
+    await supabase.auth.signOut();
+    window.location.href = 'login.html';
+  });
+
+  // Ensure balance row exists
+  const { data: balData, error: balErr, status } = await supabase
+    .from('balances').select('balance, last_generated').eq('user_id', user.id).maybeSingle();
+
+  let balance = 0;
+  let lastGenerated = new Date().toISOString();
+
+  if (!balData) {
+    await supabase.from('balances').insert({ user_id: user.id, balance: 0, last_generated: lastGenerated });
+  } else {
+    balance = Number(balData.balance || 0);
+    lastGenerated = balData.last_generated || lastGenerated;
+  }
+
+  // Draw supply counter (shows above the welcome card)
+  totalSupplyEl.textContent = fmtInt.format(TOTAL_SUPPLY);
+  supplyBar.style.display = 'block';
+  startSupplyPolling(); // live updates
+
+  // Render main UI & start minting
+  renderApp(user, balance, lastGenerated);
+  startMinting(user, balance, lastGenerated);
+}
+
+// ======= SUPPLY BAR =======
+async function fetchSupplyStats(){
+  // Prefer RPC (single round-trip). If you ever change total supply, update SQL + TOTAL_SUPPLY constant.
+  const { data, error } = await supabase.rpc('get_supply_stats');
+  if (error) throw error;
+
+  // Function may return an array rowset or an object depending on SQL; normalize:
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    total: Number(row.total_supply ?? TOTAL_SUPPLY),
+    minted: Number(row.minted_total ?? 0),
+    remaining: Number(row.remaining ?? Math.max(TOTAL_SUPPLY - Number(row.minted_total ?? 0), 0)),
+    inBalances: Number(row.balances_total ?? 0),
+    inUnredeemedPassids: Number(row.passids_unredeemed ?? 0),
+  };
+}
+
+async function updateSupplyBar(){
   try{
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session){
-      location.href = 'login.html';
-      return;
-    }
-    const user = session.user;
-    userStatus.textContent = user.email || 'signed in';
-    logoutBtn.style.display = 'inline-block';
-    logoutBtn.onclick = async () => { await sb.auth.signOut(); location.href = 'login.html'; };
-
-    // Ensure balance row exists (avoid PGRST116 empty-row failure) :contentReference[oaicite:8]{index=8}
-    const { data: balRow, error: selErr } = await sb
-      .from('balances')
-      .select('balance,last_generated')
-      .eq('user_id', user.id)
-      .maybeSingle(); // returns null if none (no error)
-
-    let balance = 0;
-    let lastGenerated = new Date().toISOString();
-
-    if (!balRow){
-      // create a fresh row
-      const { error: insErr } = await sb.from('balances').insert({
-        user_id: user.id, balance: 0, last_generated: lastGenerated
-      });
-      if (insErr){ showInlineError('Could not initialize your balance. Check RLS policies.'); }
-    } else {
-      balance = parseFloat(balRow.balance || 0) || 0;
-      lastGenerated = balRow.last_generated || lastGenerated;
-    }
-
-    renderApp(user, balance);
-    startMinting(user, balance, lastGenerated);
-  } catch(err){
-    showInlineError('App failed to start: ' + (err?.message || String(err)));
-    console.error(err);
+    const s = await fetchSupplyStats();
+    remainingSupplyEl.textContent = fmtInt.format(Math.max(Math.floor(s.remaining), 0));
+    const pctMinted = Math.min(100, (s.minted / s.total) * 100);
+    progressEl.style.width = `${pctMinted}%`;
+    mintedBlurbEl.textContent = `Minted so far: ${fmtInt.format(Math.floor(s.minted))} (balances: ${fmtInt.format(Math.floor(s.inBalances))} · unredeemed PassIDs: ${fmtInt.format(Math.floor(s.inUnredeemedPassids))})`;
+  }catch(e){
+    // keep the bar but show a soft error
+    mintedBlurbEl.textContent = 'Supply stats currently unavailable.';
   }
 }
 
-function renderApp(user, balance){
+function startSupplyPolling(){
+  updateSupplyBar();
+  // Poll every 15s; you could also listen to realtime `postgres_changes` on balances/passids.
+  setInterval(updateSupplyBar, 15000);
+  // (Realtime is also supported by Supabase if you prefer push updates.) :contentReference[oaicite:3]{index=3}
+}
+
+// ======= MAIN APP (welcome card, passid create/redeem) =======
+function renderApp(user, balance, lastGenerated){
   app.innerHTML = '';
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.innerHTML = `
-    <h2 style="margin:0 0 4px">Welcome, ${user.email}</h2>
-    <div class="hint">Supply cap: 1,000,000,000 · Rate: <strong>100</strong> coins/hour while this tab is open.</div>
+  const container = document.createElement('div');
+  container.className = 'card';
+  container.innerHTML = `
+    <h2 style="margin-top:0;">Welcome, ${user.email}</h2>
+    <p>Your current balance:</p>
+    <h3 id="balanceDisplay" style="margin:6px 0 16px; font-size:26px;">${fmt4.format(balance)} ¢</h3>
+    <p>Coins accumulate while this page is open. Every hour you earn <strong>${RATE_PER_HOUR}</strong> ThreadlessCoin.</p>
 
-    <p style="margin-top:14px">Your current balance:</p>
-    <h3 id="balanceDisplay" style="margin:6px 0 16px;font-size:26px">${balance.toFixed(4)} ¢</h3>
-
-    <div class="row" style="margin-top:16px">
+    <div class="row" style="margin-top:20px;">
       <div>
-        <label for="amountInput" class="hint">Convert amount to PassID</label>
+        <label for="amountInput">Amount to convert to PassID</label>
         <input id="amountInput" type="number" min="0" step="0.0001" placeholder="0.00" />
       </div>
       <button class="btn" id="createPassBtn">Create PassID</button>
     </div>
-    <div id="passidOutput" class="passid" style="display:none"></div>
+    <div id="passidOutput" class="passid" style="display:none;"></div>
 
-    <hr style="margin:24px 0;border-color:var(--line)">
-
-    <label for="redeemInput" class="hint">Redeem a PassID</label>
+    <hr style="margin:24px 0; border-color:var(--line);">
+    <label for="redeemInput">Redeem a PassID</label>
     <input id="redeemInput" type="text" placeholder="Enter PassID" />
-    <button class="btn" id="redeemBtn" style="margin-top:12px">Redeem</button>
-    <div id="redeemMessage" class="passid" style="display:none"></div>
+    <button class="btn" id="redeemBtn" style="margin-top:12px;">Redeem</button>
+    <div id="redeemMessage" class="passid" style="display:none;"></div>
   `;
-  app.appendChild(card);
+  app.appendChild(container);
 
-  // events
-  document.getElementById('createPassBtn').addEventListener('click', () => createPass(user));
-  document.getElementById('redeemBtn').addEventListener('click', () => redeemPass(user));
+  document.getElementById('createPassBtn').addEventListener('click', async () => {
+    const amount = parseFloat(document.getElementById('amountInput').value);
+    const output = document.getElementById('passidOutput');
+    output.style.display = 'none';
+    if (isNaN(amount) || amount <= 0) {
+      output.textContent = 'Please enter a positive amount.';
+      output.style.display = 'block';
+      return;
+    }
+    const { data: balRow } = await supabase.from('balances').select('balance').eq('user_id', user.id).single();
+    const currentBal = parseFloat(balRow?.balance || 0);
+    if (currentBal < amount) {
+      output.textContent = 'Insufficient balance.';
+      output.style.display = 'block';
+      return;
+    }
+    const passid = crypto.randomUUID().replace(/-/g, '');
+    const { error: insertErr } = await supabase.from('passids').insert({
+      user_id: user.id, amount, passid, redeemed_by: null, redeemed_at: null
+    });
+    if (insertErr) {
+      output.textContent = insertErr.message || 'Failed to create passid.';
+      output.style.display = 'block';
+      return;
+    }
+    await supabase.from('balances').update({ balance: currentBal - amount }).eq('user_id', user.id);
+    document.getElementById('balanceDisplay').textContent = fmt4.format(currentBal - amount) + ' ¢';
+    output.textContent = `PassID created: ${passid}`;
+    output.style.display = 'block';
+    document.getElementById('amountInput').value = '';
+
+    // refresh supply (unredeemed pool increased, balances decreased)
+    updateSupplyBar();
+  });
+
+  document.getElementById('redeemBtn').addEventListener('click', async () => {
+    const passidInput = document.getElementById('redeemInput');
+    const messageEl = document.getElementById('redeemMessage');
+    messageEl.style.display = 'none';
+    const pid = passidInput.value.trim();
+    if (!pid) return;
+
+    const { data: rec, error } = await supabase.from('passids').select('*').eq('passid', pid).single();
+    if (error || !rec) {
+      messageEl.textContent = 'Invalid passid.';
+      messageEl.style.display = 'block';
+      return;
+    }
+    if (rec.redeemed_by) {
+      messageEl.textContent = 'This passid has already been redeemed.';
+      messageEl.style.display = 'block';
+      return;
+    }
+    if (rec.user_id === user.id) {
+      messageEl.textContent = 'You cannot redeem your own passid.';
+      messageEl.style.display = 'block';
+      return;
+    }
+
+    const { error: updateErr } = await supabase.from('passids')
+      .update({ redeemed_by: user.id, redeemed_at: new Date().toISOString() })
+      .eq('id', rec.id);
+    if (updateErr) {
+      messageEl.textContent = updateErr.message || 'Could not redeem passid.';
+      messageEl.style.display = 'block';
+      return;
+    }
+
+    const { data: balRow2 } = await supabase.from('balances').select('balance').eq('user_id', user.id).single();
+    const userBal = parseFloat(balRow2?.balance || 0);
+    const newBal = userBal + parseFloat(rec.amount);
+    await supabase.from('balances').update({ balance: newBal }).eq('user_id', user.id);
+    document.getElementById('balanceDisplay').textContent = fmt4.format(newBal) + ' ¢';
+    messageEl.textContent = `Redeemed ${fmt4.format(rec.amount)} ¢ successfully!`;
+    messageEl.style.display = 'block';
+    passidInput.value = '';
+
+    // refresh supply (unredeemed pool shrank, balances rose; minted stays same)
+    updateSupplyBar();
+  });
 }
 
-// Generate long Base64url PassID
-function genPassId(){
-  // Use crypto APIs (supported widely) :contentReference[oaicite:9]{index=9}
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  let b64 = btoa(String.fromCharCode(...bytes));
-  // Base64url
-  b64 = b64.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-  // add uuid for extra length/uniqueness
-  return b64 + '_' + crypto.randomUUID().replace(/-/g,'');
-}
+// ======= MINTING LOOP =======
+function startMinting(user, startingBalance, lastGeneratedIso){
+  let currentBalance = startingBalance;
+  let lastTs = new Date(lastGeneratedIso).getTime();
+  const coinsPerSecond = RATE_PER_HOUR / 3600;
+  let bucket = 0;
 
-async function createPass(user){
-  const amount = parseFloat(document.getElementById('amountInput').value);
-  const out = document.getElementById('passidOutput');
-  out.style.display = 'none';
-
-  if (isNaN(amount) || amount <= 0){ out.textContent = 'Enter a positive amount.'; out.style.display='block'; return; }
-
-  // check latest balance
-  const { data: b } = await sb.from('balances').select('balance').eq('user_id', user.id).maybeSingle();
-  const cur = parseFloat(b?.balance || 0) || 0;
-  if (cur < amount){ out.textContent = 'Insufficient balance.'; out.style.display='block'; return; }
-
-  const passid = genPassId();
-  const { error: insErr } = await sb.from('passids').insert({ user_id: user.id, amount, passid, redeemed_by: null, redeemed_at: null });
-  if (insErr){ out.textContent = insErr.message || 'Failed to create passid.'; out.style.display='block'; return; }
-
-  await sb.from('balances').update({ balance: cur - amount }).eq('user_id', user.id);
-  document.getElementById('balanceDisplay').textContent = (cur - amount).toFixed(4) + ' ¢';
-
-  out.textContent = `PassID created: ${passid}`;
-  out.style.display = 'block';
-  document.getElementById('amountInput').value = '';
-}
-
-async function redeemPass(user){
-  const pid = document.getElementById('redeemInput').value.trim();
-  const msg = document.getElementById('redeemMessage');
-  msg.style.display = 'none';
-  if (!pid){ return; }
-
-  const { data: rec, error } = await sb.from('passids').select('*').eq('passid', pid).maybeSingle();
-  if (error || !rec){ msg.textContent = 'Invalid PassID.'; msg.style.display='block'; return; }
-  if (rec.redeemed_by){ msg.textContent = 'This PassID has already been redeemed.'; msg.style.display='block'; return; }
-  if (rec.user_id === (await sb.auth.getUser()).data.user.id){ msg.textContent = 'You cannot redeem your own PassID.'; msg.style.display='block'; return; }
-
-  const { error: updErr } = await sb.from('passids')
-    .update({ redeemed_by: (await sb.auth.getUser()).data.user.id, redeemed_at: new Date().toISOString() })
-    .eq('id', rec.id);
-  if (updErr){ msg.textContent = updErr.message || 'Redeem failed.'; msg.style.display='block'; return; }
-
-  const { data: bal } = await sb.from('balances').select('balance').eq('user_id', (await sb.auth.getUser()).data.user.id).maybeSingle();
-  const newBal = (parseFloat(bal?.balance || 0) || 0) + parseFloat(rec.amount || 0);
-  await sb.from('balances').update({ balance: newBal }).eq('user_id', (await sb.auth.getUser()).data.user.id);
-  document.getElementById('balanceDisplay').textContent = newBal.toFixed(4) + ' ¢';
-
-  msg.textContent = `Redeemed ${Number(rec.amount).toFixed(4)} ¢ successfully!`;
-  msg.style.display = 'block';
-  document.getElementById('redeemInput').value = '';
-}
-
-// Minting: 100 coins/hour
-function startMinting(user, startBalance, lastGeneratedIso){
-  let bal = startBalance;
-  let last = new Date(lastGeneratedIso).getTime();
-  const perSec = 100 / 3600; // coins per second
-
-  // catch-up
+  // Catch up from last_generated
   const now = Date.now();
-  if (now > last){
-    const earned = (now - last) / 1000 * perSec;
-    bal += earned;
-    last = now;
-    sb.from('balances').update({ balance: bal, last_generated: new Date().toISOString() }).eq('user_id', user.id);
+  if (now > lastTs) {
+    const elapsed = (now - lastTs) / 1000;
+    currentBalance += elapsed * coinsPerSecond;
+    lastTs = now;
+    supabase.from('balances')
+      .update({ balance: currentBalance, last_generated: new Date().toISOString() })
+      .eq('user_id', user.id);
   }
-  const disp = document.getElementById('balanceDisplay');
-  disp.textContent = bal.toFixed(4) + ' ¢';
+  document.getElementById('balanceDisplay').textContent = fmt4.format(currentBalance) + ' ¢';
 
-  let acc = 0;
-  setInterval(async ()=>{
+  setInterval(async () => {
     const t = Date.now();
-    const delta = (t - last) / 1000;
-    last = t;
-    bal += delta * perSec;
-    acc += delta;
+    const delta = (t - lastTs) / 1000;
+    lastTs = t;
+    currentBalance += delta * coinsPerSecond;
+    bucket += delta;
 
-    disp.textContent = bal.toFixed(4) + ' ¢';
+    const displayEl = document.getElementById('balanceDisplay');
+    if (displayEl) displayEl.textContent = fmt4.format(currentBalance) + ' ¢';
 
-    if (acc >= 60){
-      acc = 0;
-      await sb.from('balances').update({ balance: bal, last_generated: new Date().toISOString() }).eq('user_id', user.id);
+    // Persist ~ every minute
+    if (bucket >= 60) {
+      bucket = 0;
+      await supabase.from('balances')
+        .update({ balance: currentBalance, last_generated: new Date().toISOString() })
+        .eq('user_id', user.id);
+
+      // Minting increases total minted; update supply bar occasionally
+      updateSupplyBar();
     }
   }, 1000);
 }
